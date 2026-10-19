@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import type { AiSuggestRequest, AiSuggestResponse } from "../shared/types";
 import { type AppEnv, requireAuth } from "./auth";
 
-const MODEL = "@cf/meta/llama-3.1-8b-instruct";
+const MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 const TIMEOUT_MS = 8000;
 const MAX_TEXT = 1000;
 const MAX_TITLE = 40;
@@ -35,8 +35,11 @@ function stripFences(s: string): string {
 
 function parseSuggestion(raw: unknown): { title: string; steps: string[] } | null {
   let payload: unknown = raw;
-  if (payload && typeof payload === "object" && "response" in payload) {
-    payload = (payload as { response: unknown }).response;
+  if (payload && typeof payload === "object") {
+    // Workers AI returns either { response } or an OpenAI-style { choices: [{ message: { content } }] }.
+    const obj = payload as { response?: unknown; choices?: { message?: { content?: unknown } }[] };
+    if ("response" in obj) payload = obj.response;
+    else if (Array.isArray(obj.choices)) payload = obj.choices[0]?.message?.content;
   }
   if (typeof payload === "string") {
     try {

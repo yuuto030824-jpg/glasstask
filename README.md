@@ -19,7 +19,7 @@
 | --- | --- | --- |
 | ホスティング / API | **Cloudflare Workers + Static Assets** | 要件が「バックエンドは Cloudflare」。Pages + Functions ではなく Workers 単体に静的アセットを同梱すると、デプロイ単位が 1 つになり、`/api/*` だけ Worker を先に通す (`run_worker_first`) 設定で SPA と API を同一オリジンに置ける。同一オリジンなので CORS も CSRF 対策用の余計なヘッダも不要。 |
 | DB | **Cloudflare D1** | タスクは「ユーザー ID で分割された小さな行」で、SQLite の D1 と相性が良い。KV は一覧・更新の整合性が取りにくく、Durable Objects はこの規模では過剰。マイグレーションを `wrangler d1 migrations` で管理できる。 |
-| AI | **Workers AI (`@cf/meta/llama-3.1-8b-instruct`)** | 要件。8B クラスは「メモ → タスク名 + 次の一手」程度の整形には十分で、レイテンシとコストが小さい。`response_format: json_schema` で JSON を強制し、失敗時は必ずヒューリスティックへフォールバックして UI を止めない。 |
+| AI | **Workers AI (`@cf/meta/llama-3.3-70b-instruct-fp8-fast`)** | 要件。日本語の整形品質が高く、fp8 量子化の高速版なので 1 秒前後で返る。旧 `llama-3.1-8b-instruct` は 2026-05 に廃止済み。`response_format: json_schema` で JSON を強制し、失敗時は必ずヒューリスティックへフォールバックして UI を止めない。 |
 | API フレームワーク | **Hono** | Workers ネイティブで極小・高速。ルーター、Cookie ヘルパー、型付き Bindings/Variables が揃っていて、D1・AI の型と素直に組み合わせられる。 |
 | 認証 | **Google OAuth 2.0 (PKCE) + サーバーセッション** | 要件が「Google 認証のみ」。OAuth クライアントは [`arctic`](https://arcticjs.dev) を採用（Web 標準 API だけで動き、Workers で使える）。セッションは JWT ではなく **D1 のセッション行 + HttpOnly / SameSite=Lax Cookie** にした。即時失効ができ、トークンがクライアントに露出しない。 |
 | フロント | **React 19 + Vite 8 + TypeScript** | `@cloudflare/vite-plugin` が Vite の開発サーバー内で Worker を実際に動かすため、フロント・API・D1 を 1 プロセスで開発できる。React 19 は `motion` のレイアウトアニメーションと相性が良く、エコシステムも最大。 |
@@ -79,7 +79,7 @@ Chromium (Pixel 7) と WebKit (iPhone 14) で 11 シナリオずつ実行する�
    出力された `database_id` を `wrangler.jsonc` の `d1_databases[0].database_id` に書く。
 
 2. Google Cloud Console で OAuth クライアント（ウェブ アプリケーション）を作成し、承認済みリダイレクト URI に
-   `https://<your-worker>.workers.dev/api/auth/google/callback` を登録する。
+   `https://glasstask.glasstask.workers.dev/api/auth/google/callback` を登録する。
 
 3. シークレットを設定してデプロイする。
 
