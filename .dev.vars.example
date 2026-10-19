@@ -1,0 +1,5 @@
+# Copy to .dev.vars for local development
+GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+# Allow /api/auth/dev login without Google (local/testing only). Never set in production.
+DEV_LOGIN=true
