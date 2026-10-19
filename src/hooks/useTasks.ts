@@ -15,6 +15,18 @@ export function useTasks() {
   const [syncing, setSyncing] = useState(false);
   const modeRef = useRef<StoreMode>("guest");
   const tasksRef = useRef<Task[]>(tasks);
+  /** Per-task promise chains so create → update → delete reach the API in order. */
+  const chains = useRef<Map<string, Promise<unknown>>>(new Map());
+
+  const enqueue = <T,>(id: string, fn: () => Promise<T>): Promise<T> => {
+    const prev = chains.current.get(id) ?? Promise.resolve();
+    const next = prev.catch(() => undefined).then(fn);
+    chains.current.set(id, next);
+    next.finally(() => {
+      if (chains.current.get(id) === next) chains.current.delete(id);
+    });
+    return next;
+  };
 
   useEffect(() => {
     tasksRef.current = tasks;
@@ -70,8 +82,7 @@ export function useTasks() {
     setTasks((prev) => sortTasks([task, ...prev]));
     if (modeRef.current === "cloud") {
       try {
-        const { task: saved } = await api.createTask({ id: task.id, title: task.title, status });
-        patchLocal(task.id, saved);
+        await enqueue(task.id, () => api.createTask({ id: task.id, title: task.title, status }));
       } catch {
         setTasks((prev) => prev.filter((t) => t.id !== task.id));
         return null;
@@ -91,8 +102,7 @@ export function useTasks() {
     patchLocal(id, next);
     if (modeRef.current === "cloud") {
       try {
-        const { task: saved } = await api.updateTask(id, patch);
-        patchLocal(id, saved);
+        await enqueue(id, () => api.updateTask(id, patch));
       } catch {
         patchLocal(id, current);
       }
@@ -105,7 +115,7 @@ export function useTasks() {
     setTasks((prev) => prev.filter((t) => t.id !== id));
     if (modeRef.current === "cloud") {
       try {
-        await api.deleteTask(id);
+        await enqueue(id, () => api.deleteTask(id));
       } catch {
         setTasks((prev) => sortTasks([current, ...prev]));
         return null;
@@ -118,7 +128,9 @@ export function useTasks() {
     setTasks((prev) => sortTasks([task, ...prev.filter((t) => t.id !== task.id)]));
     if (modeRef.current === "cloud") {
       try {
-        await api.createTask({ id: task.id, title: task.title, note: task.note, status: task.status });
+        await enqueue(task.id, () =>
+          api.createTask({ id: task.id, title: task.title, note: task.note, status: task.status }),
+        );
       } catch {
         /* keep optimistic copy */
       }

@@ -1,18 +1,21 @@
 import { motion } from "motion/react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { haptic } from "../lib/haptics";
 import { PlusIcon, SparkIcon } from "./icons";
 
 export function Composer({
+  value,
+  onChange,
   onSubmit,
   onAi,
   aiBusy,
 }: {
+  value: string;
+  onChange: (v: string) => void;
   onSubmit: (title: string) => void;
   onAi: (text: string) => void;
   aiBusy: boolean;
 }) {
-  const [value, setValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const canSubmit = value.trim().length > 0;
 
@@ -27,7 +30,7 @@ export function Composer({
   const submit = () => {
     if (!canSubmit) return;
     onSubmit(value);
-    setValue("");
+    onChange("");
     haptic(8);
     inputRef.current?.focus({ preventScroll: true });
   };
@@ -58,7 +61,7 @@ export function Composer({
           placeholder="メモ"
           aria-label="new task"
           value={value}
-          onChange={(e) => setValue(e.target.value)}
+          onChange={(e) => onChange(e.target.value)}
           className="h-11 min-w-0 flex-1 bg-transparent text-[16px] outline-none"
         />
         <motion.button

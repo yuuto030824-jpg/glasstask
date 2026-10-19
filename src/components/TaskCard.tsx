@@ -6,6 +6,7 @@ import { ArrowLeftIcon, ArrowRightIcon, CheckIcon, TrashIcon } from "./icons";
 
 const THRESHOLD = 88;
 const VELOCITY = 650;
+const MIN_FLICK_DISTANCE = 40;
 
 export function TaskCard({
   task,
@@ -63,10 +64,12 @@ export function TaskCard({
         onDragEnd={(_, info) => {
           const dx = info.offset.x;
           const vx = info.velocity.x;
-          if (dx > THRESHOLD || vx > VELOCITY) {
+          const fastRight = dx > MIN_FLICK_DISTANCE && vx > VELOCITY;
+          const fastLeft = dx < -MIN_FLICK_DISTANCE && vx < -VELOCITY;
+          if (dx > THRESHOLD || fastRight) {
             haptic([8, 30, 12]);
             onSwipeRight();
-          } else if (dx < -THRESHOLD || vx < -VELOCITY) {
+          } else if (dx < -THRESHOLD || fastLeft) {
             haptic([8, 30, 12]);
             onSwipeLeft();
           }

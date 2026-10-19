@@ -16,9 +16,23 @@ export async function addTask(page: Page, title: string) {
   await expect(page.getByTestId("task-title").filter({ hasText: title }).first()).toBeVisible();
 }
 
+/** Wait until an element's bounding box stops moving (layout/enter animations settled). */
+async function settledBox(locator: Locator) {
+  let prev = await locator.boundingBox();
+  for (let i = 0; i < 40; i++) {
+    await locator.page().waitForTimeout(60);
+    const next = await locator.boundingBox();
+    if (prev && next && Math.abs(prev.x - next.x) < 0.5 && Math.abs(prev.y - next.y) < 0.5 && Math.abs(prev.height - next.height) < 0.5) {
+      return next;
+    }
+    prev = next;
+  }
+  return prev;
+}
+
 /** Flick a card horizontally. Positive dx = right, negative = left. */
 export async function flick(page: Page, card: Locator, dx: number) {
-  const box = await card.boundingBox();
+  const box = await settledBox(card);
   if (!box) throw new Error("card not visible");
   const startX = box.x + box.width / 2;
   const y = box.y + box.height / 2;

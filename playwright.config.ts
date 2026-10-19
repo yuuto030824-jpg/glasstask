@@ -4,6 +4,7 @@ const PORT = 5177;
 
 export default defineConfig({
   testDir: "./e2e",
+  globalSetup: "./e2e/global-setup.ts",
   fullyParallel: false,
   workers: 1,
   retries: 0,
@@ -13,9 +14,11 @@ export default defineConfig({
     baseURL: `http://localhost:${PORT}`,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
-    ...devices["iPhone 14"],
-    // Playwright's mobile emulation uses touch; motion's drag works with both.
   },
+  projects: [
+    { name: "mobile-chromium", use: { ...devices["Pixel 7"] } },
+    { name: "mobile-webkit", use: { ...devices["iPhone 14"] } },
+  ],
   webServer: {
     command: `npx vite dev --port ${PORT} --strictPort`,
     url: `http://localhost:${PORT}/api/health`,

@@ -29,6 +29,7 @@ export default function App() {
   const [aiResult, setAiResult] = useState<AiResult | null>(null);
   const [aiBusy, setAiBusy] = useState(false);
   const [toast, setToast] = useState<ToastState>(null);
+  const [draft, setDraft] = useState("");
   const toastTimer = useRef<number | null>(null);
   const connectedFor = useRef<string | null>(null);
 
@@ -114,6 +115,7 @@ export default function App() {
     } else {
       const created = await store.add(r.title);
       if (created && note) await store.update(created.id, { note });
+      setDraft("");
     }
     setAiResult(null);
     setOpenTask(null);
@@ -162,6 +164,8 @@ export default function App() {
         </motion.main>
 
         <Composer
+          value={draft}
+          onChange={setDraft}
           onSubmit={(title) => {
             void store.add(title, tab === "done" ? "todo" : tab);
             if (tab === "done") {

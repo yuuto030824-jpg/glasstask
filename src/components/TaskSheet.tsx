@@ -1,10 +1,12 @@
 import { motion } from "motion/react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { TASK_STATUSES, type Task, type TaskStatus } from "@shared/types";
 import { STATUS_COLOR, STATUS_LABEL } from "../lib/status";
 import { haptic } from "../lib/haptics";
 import { Sheet } from "./Sheet";
 import { SparkIcon, TrashIcon } from "./icons";
+
+const COMMIT_DEBOUNCE_MS = 400;
 
 export function TaskSheet({
   task,
@@ -23,38 +25,62 @@ export function TaskSheet({
 }) {
   const [title, setTitle] = useState("");
   const [note, setNote] = useState("");
+  const draft = useRef({ title: "", note: "" });
+  const timer = useRef<number | null>(null);
 
+  // Local state is the source of truth while the sheet is open; reset only when another task opens.
   useEffect(() => {
     if (task) {
+      draft.current = { title: task.title, note: task.note };
       setTitle(task.title);
       setNote(task.note);
     }
-  }, [task?.id, task?.title, task?.note]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [task?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const commit = () => {
+  const flush = useCallback(() => {
+    if (timer.current) {
+      window.clearTimeout(timer.current);
+      timer.current = null;
+    }
     if (!task) return;
-    const t = title.trim();
+    const t = draft.current.title.trim();
     const patch: Partial<Pick<Task, "title" | "note">> = {};
     if (t && t !== task.title) patch.title = t;
-    if (note !== task.note) patch.note = note;
+    if (draft.current.note !== task.note) patch.note = draft.current.note;
     if (Object.keys(patch).length) onUpdate(task.id, patch);
+  }, [task, onUpdate]);
+
+  const schedule = () => {
+    if (timer.current) window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(flush, COMMIT_DEBOUNCE_MS);
+  };
+
+  useEffect(() => () => { if (timer.current) window.clearTimeout(timer.current); }, []);
+
+  const close = () => {
+    flush();
+    onClose();
   };
 
   const setStatus = (s: TaskStatus) => {
     if (!task || s === task.status) return;
     haptic(8);
+    flush();
     onUpdate(task.id, { status: s });
   };
 
   return (
-    <Sheet open={!!task} onClose={() => { commit(); onClose(); }} testId="task-sheet">
+    <Sheet open={!!task} onClose={close} testId="task-sheet">
       {task && (
         <div className="flex flex-col gap-4">
           <input
             data-testid="sheet-title"
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            onBlur={commit}
+            onChange={(e) => {
+              setTitle(e.target.value);
+              draft.current.title = e.target.value;
+              schedule();
+            }}
             onKeyDown={(e) => e.key === "Enter" && (e.currentTarget as HTMLInputElement).blur()}
             className="w-full bg-transparent text-[18px] font-semibold leading-snug outline-none"
             aria-label="title"
@@ -87,8 +113,11 @@ export function TaskSheet({
           <textarea
             data-testid="sheet-note"
             value={note}
-            onChange={(e) => setNote(e.target.value)}
-            onBlur={commit}
+            onChange={(e) => {
+              setNote(e.target.value);
+              draft.current.note = e.target.value;
+              schedule();
+            }}
             rows={4}
             placeholder="ノート"
             aria-label="note"
@@ -109,7 +138,10 @@ export function TaskSheet({
               type="button"
               data-testid="sheet-ai"
               disabled={aiBusy}
-              onClick={() => onAi({ ...task, title: title.trim() || task.title })}
+              onClick={() => {
+                flush();
+                onAi({ ...task, title: draft.current.title.trim() || task.title });
+              }}
               className="flex h-10 items-center gap-1.5 rounded-full px-4 text-[13px] font-medium text-white disabled:opacity-60"
               style={{ background: "linear-gradient(135deg, #6d8cff, #a78bfa)" }}
               whileTap={{ scale: 0.94 }}

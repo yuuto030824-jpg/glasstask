@@ -4,7 +4,7 @@
     {
       "name": "glasstask-dev",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--", "--port", "5173", "--strictPort"],
+      "runtimeArgs": ["--prefix", "/Users/sannai/Desktop/glasstask", "run", "dev", "--", "--port", "5173", "--strictPort"],
       "port": 5173
     }
   ]
