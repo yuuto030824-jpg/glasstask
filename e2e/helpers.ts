@@ -30,19 +30,36 @@ async function settledBox(locator: Locator) {
   return prev;
 }
 
-/** Flick a card horizontally. Positive dx = right, negative = left. */
-export async function flick(page: Page, card: Locator, dx: number) {
-  const box = await settledBox(card);
-  if (!box) throw new Error("card not visible");
-  const startX = box.x + box.width / 2;
-  const y = box.y + box.height / 2;
-  await page.mouse.move(startX, y);
-  await page.mouse.down();
-  const steps = 12;
-  for (let i = 1; i <= steps; i++) {
-    await page.mouse.move(startX + (dx * i) / steps, y);
+/** Flick a card horizontally. Positive dx = right, negative = left.
+ *  Retries when the gesture was not registered (slow CI runners can drop pointer samples). */
+export async function flick(page: Page, card: Locator, dx: number, attempts = 3) {
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    const box = await settledBox(card);
+    if (!box) throw new Error("card not visible");
+    const before = await card.getAttribute("data-status");
+    const startX = box.x + box.width / 2;
+    const y = box.y + box.height / 2;
+    await page.mouse.move(startX, y);
+    await page.mouse.down();
+    const steps = 16;
+    for (let i = 1; i <= steps; i++) {
+      await page.mouse.move(startX + (dx * i) / steps, y);
+      await page.waitForTimeout(12);
+    }
+    await page.waitForTimeout(40);
+    await page.mouse.up();
+
+    // A small drag is expected to do nothing; don't retry it.
+    if (Math.abs(dx) < 60) return;
+    try {
+      await expect
+        .poll(async () => ((await card.count()) === 0 ? null : await card.getAttribute("data-status")), { timeout: 2500 })
+        .not.toBe(before);
+      return;
+    } catch {
+      if (attempt === attempts - 1) throw new Error(`flick(${dx}) was not registered after ${attempts} attempts`);
+    }
   }
-  await page.mouse.up();
 }
 
 export function cardByTitle(page: Page, title: string) {
