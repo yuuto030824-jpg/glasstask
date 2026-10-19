@@ -102,7 +102,17 @@ authRoutes.get("/auth/google/callback", async (c) => {
   const codeVerifier = getCookie(c, OAUTH_VERIFIER_COOKIE);
   deleteCookie(c, OAUTH_STATE_COOKIE, { path: "/" });
   deleteCookie(c, OAUTH_VERIFIER_COOKIE, { path: "/" });
-  if (!google || !code || !state || !storedState || !codeVerifier || state !== storedState) return fail();
+  if (!google || !code || !state || !storedState || !codeVerifier || state !== storedState) {
+    console.warn("google callback rejected", {
+      configured: !!google,
+      hasCode: !!code,
+      hasState: !!state,
+      hasStoredState: !!storedState,
+      hasVerifier: !!codeVerifier,
+      stateMatch: state === storedState,
+    });
+    return fail();
+  }
   try {
     const tokens = await google.validateAuthorizationCode(code, codeVerifier);
     const claims = decodeIdToken(tokens.idToken()) as GoogleClaims;
